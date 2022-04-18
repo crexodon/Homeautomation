@@ -1,0 +1,160 @@
+substitutions:
+  friendly_name: "CHANGEME"
+
+esphome:
+  name: CHANGEME
+
+esp8266:
+  board: esp01_1m
+  restore_from_flash: true
+
+preferences:
+  flash_write_interval: 1min
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+
+ota:
+  password: "CHANGEME"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  fast_connect: true
+
+globals:
+  - id: "connectedState"
+    type: bool
+    restore_value: false
+    initial_value: "true"
+
+# Check if WiFi or HASS is available and store that in global
+interval:
+  - interval: 5s
+    then:
+      - if:
+          condition:
+            not:
+              wifi.connected:
+          then:
+            lambda: !lambda |-
+              id(connectedState) = false;
+              id(statusled).turn_on();
+          else:
+            lambda: !lambda |-
+              id(connectedState) = true;
+              id(statusled).turn_off();
+      - if:
+          condition:
+            not:
+              api.connected:
+          then:
+            lambda: !lambda |-
+              id(connectedState) = false;
+              id(statusled).turn_on();
+          else:
+            lambda: !lambda |-
+              id(connectedState) = true;
+              id(statusled).turn_off();
+
+output:
+  - platform: gpio
+    pin: GPIO4
+    id: "out1"
+  - platform: gpio
+    pin: GPIO15
+    id: "out2"
+  - platform: gpio
+    pin: GPIO13
+    id: "out3"
+  - platform: gpio
+    pin: GPIO12
+    id: "led1"
+  - platform: gpio
+    pin: GPIO0
+    id: "led23"
+    inverted: true
+  - platform: gpio
+    pin: GPIO1
+    id: "led4"
+  - platform: gpio
+    pin: GPIO14
+    id: "led5"
+
+
+switch:
+  - platform: output
+    name: "Relay 1"
+    output: "out1"
+    id: "switch1"
+    restore_mode: RESTORE_DEFAULT_ON
+  - platform: output
+    name: "Relay 2"
+    output: "out2"
+    id: "switch2"
+    restore_mode: RESTORE_DEFAULT_ON
+  - platform: output
+    name: "Relay 3"
+    output: "out3"
+    id: "switch3"
+    restore_mode: RESTORE_DEFAULT_ON
+
+# If connectedState is false then toggle Relay
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO16
+      inverted: true
+    name: "Button 1"
+    on_press:
+      - lambda: !lambda |-
+          if (!id(connectedState)) {
+            id(switch1).toggle();
+            ESP_LOGD("ConnectionState","Relay 1 Toggled");
+          }
+    filters:
+      - delayed_on: 10ms
+  - platform: gpio
+    pin:
+      number: GPIO5
+      inverted: true
+    name: "Button 2"
+    filters:
+      - delayed_on: 10ms
+    on_press:
+      - lambda: !lambda |-
+          if (!id(connectedState)) {
+            id(switch2).toggle();
+            ESP_LOGD("ConnectionState","Relay 2 Toggled");
+          }
+  - platform: gpio
+    pin:
+      number: GPIO3
+      inverted: true
+    name: "Button 3"
+    filters:
+      - delayed_on: 10ms
+    on_press:
+      - lambda: !lambda |-
+          if (!id(connectedState)) {
+            id(switch3).toggle();
+            ESP_LOGD("ConnectionState","Relay 3 Toggled");
+          }
+
+light:
+  - platform: binary
+    name: "Button 1 LED"
+    output: led1
+  - platform: binary
+    name: "Button 2 LED"
+    output: led4
+  - platform: binary
+    name: "Button 3 LED"
+    output: led5
+  - platform: binary
+    name: "Status LED"
+    output: led23
+    id: statusled
